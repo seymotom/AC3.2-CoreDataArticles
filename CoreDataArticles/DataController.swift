@@ -27,7 +27,8 @@ class DataController: NSObject {
         managedObjectContext.persistentStoreCoordinator = psc
         self.managedObjectContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
         
-        DispatchQueue.main.async {
+        // I'm not sure why this was being queued thusly but it was creating a race condition
+        //DispatchQueue.main.async {
             let urls = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
             let docURL = urls.last!
             /* The directory the application uses to store the Core Data store file.
@@ -39,7 +40,7 @@ class DataController: NSObject {
             } catch {
                 fatalError("Error migrating store: \(error)")
             }
-        }
+        //}
     }
     
     // should be called from the thread using the private context
@@ -47,6 +48,7 @@ class DataController: NSObject {
         get {
             let privateContext = NSManagedObjectContext(concurrencyType: .privateQueueConcurrencyType)
             privateContext.parent = managedObjectContext
+            privateContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
             return privateContext
         }
     }

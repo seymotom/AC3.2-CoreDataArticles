@@ -20,7 +20,7 @@ class ArticlesTableViewController: UITableViewController, NSFetchedResultsContro
     }
     
     func getData() {
-        APIRequestManager.manager.getData(endPoint: "https://api.nytimes.com/svc/topstories/v2/sports.json?api-key=f41c1b23419a4f55b613d0a243ed3243")  { (data: Data?) in
+        APIRequestManager.manager.getData(endPoint: "https://api.nytimes.com/svc/topstories/v2/opinion.json?api-key=f41c1b23419a4f55b613d0a243ed3243")  { (data: Data?) in
             if let validData = data {
                 if let jsonData = try? JSONSerialization.jsonObject(with: validData, options:[]) {
                     if let wholeDict = jsonData as? [String:Any],
