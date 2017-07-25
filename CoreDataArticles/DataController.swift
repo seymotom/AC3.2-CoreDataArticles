@@ -6,6 +6,11 @@
 //  Copyright © 2016 C4Q. All rights reserved.
 //
 
+
+
+// UIManagedDocument ??? autosaves core data 
+// NSManagedObject ???  Editor -> Create NsMangedObject SubClass
+
 import UIKit
 import CoreData
 
@@ -21,26 +26,22 @@ class DataController: NSObject {
         guard let mom = NSManagedObjectModel(contentsOf: modelURL) else {
             fatalError("Error initializing mom from: \(modelURL)")
         }
-        
         let psc = NSPersistentStoreCoordinator(managedObjectModel: mom)
         managedObjectContext = NSManagedObjectContext(concurrencyType: .mainQueueConcurrencyType)
         managedObjectContext.persistentStoreCoordinator = psc
         self.managedObjectContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
         
-        // I'm not sure why this was being queued thusly but it was creating a race condition
-        //DispatchQueue.main.async {
-            let urls = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
-            let docURL = urls.last!
-            /* The directory the application uses to store the Core Data store file.
-             This code uses a file named "DataModel.sqlite" in the application's documents directory.
-             */
-            let storeURL = docURL.appendingPathComponent("Model.sql")
-            do {
-                try psc.addPersistentStore(ofType: NSSQLiteStoreType, configurationName: nil, at: storeURL, options: nil)
-            } catch {
-                fatalError("Error migrating store: \(error)")
-            }
-        //}
+        let urls = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
+        let docURL = urls.last!
+        /* The directory the application uses to store the Core Data store file.
+         This code uses a file named "DataModel.sqlite" in the application's documents directory.
+         */
+        let storeURL = docURL.appendingPathComponent("Model.sql")
+        do {
+            try psc.addPersistentStore(ofType: NSSQLiteStoreType, configurationName: nil, at: storeURL, options: nil)
+        } catch {
+            fatalError("Error migrating store: \(error)")
+        }
     }
     
     // should be called from the thread using the private context

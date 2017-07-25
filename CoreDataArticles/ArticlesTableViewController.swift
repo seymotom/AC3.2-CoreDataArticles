@@ -9,18 +9,24 @@
 import UIKit
 import CoreData
 
-class ArticlesTableViewController: UITableViewController, NSFetchedResultsControllerDelegate {
+class ArticlesTableViewController: UITableViewController, NSFetchedResultsControllerDelegate, UISearchBarDelegate {
+    
+    
     var fetchedResultsController: NSFetchedResultsController<Article>!
+    
+    @IBOutlet var searchBarOutlet: UITableView!
+    
+    var searchWord: String?
 
     override func viewDidLoad() {
         super.viewDidLoad()
 
         initializeFetchedResultsController()
-        getData()
+        
     }
     
     func getData() {
-        APIRequestManager.manager.getData(endPoint: "https://api.nytimes.com/svc/topstories/v2/opinion.json?api-key=f41c1b23419a4f55b613d0a243ed3243")  { (data: Data?) in
+        APIRequestManager.manager.getData(endPoint: "https://api.nytimes.com/svc/topstories/v2/home.json?api-key=f41c1b23419a4f55b613d0a243ed3243")  { (data: Data?) in
             if let validData = data {
                 if let jsonData = try? JSONSerialization.jsonObject(with: validData, options:[]) {
                     if let wholeDict = jsonData as? [String:Any],
@@ -35,8 +41,23 @@ class ArticlesTableViewController: UITableViewController, NSFetchedResultsContro
                         moc.performAndWait {
                             for record in records {
                                 // now it goes in the database
-                                let article = NSEntityDescription.insertNewObject(forEntityName: "Article", into: moc) as! Article
-                                article.populate(from: record)
+                                
+                                //let's stop the repeating data
+                                
+                                guard let title = record["title"] as? String else { continue }
+                                
+                                let fetchedReqequest = NSFetchRequest<Article>(entityName: "Article")
+                                let predicate = NSPredicate(format: "title = %@", title)
+                                fetchedReqequest.predicate = predicate
+                                if let articleArr = try? fetchedReqequest.execute() {
+                                    if let article = articleArr.last {
+                                        article.populate(from: record)
+                                    }
+                                    else {
+                                        let article = NSEntityDescription.insertNewObject(forEntityName: "Article", into: moc) as! Article
+                                        article.populate(from: record)
+                                    }
+                                }
                             }
                             
                             do {
@@ -71,13 +92,17 @@ class ArticlesTableViewController: UITableViewController, NSFetchedResultsContro
         let moc = (UIApplication.shared.delegate as! AppDelegate).dataController.managedObjectContext
         
         let request = NSFetchRequest<Article>(entityName: "Article")
-        let sort = NSSortDescriptor(key: "title", ascending: true)
-        request.sortDescriptors = [sort]
+        let sectionSort = NSSortDescriptor(key: "section", ascending: true)
+        let sort = NSSortDescriptor(key: "publishedDate", ascending: false)
         
-        let predicate = NSPredicate(format: "title < %@", "M")
-        request.predicate = predicate
+        request.sortDescriptors = [sectionSort, sort]
         
-        fetchedResultsController = NSFetchedResultsController(fetchRequest: request, managedObjectContext: moc, sectionNameKeyPath: nil, cacheName: nil)
+        if let search = self.searchWord {
+            let predicate = NSPredicate(format: "section CONTAINS[c] %@", "\(search)")
+            request.predicate = predicate
+        }
+        
+        fetchedResultsController = NSFetchedResultsController(fetchRequest: request, managedObjectContext: moc, sectionNameKeyPath: "section", cacheName: nil)
         fetchedResultsController.delegate = self
         
         do {
@@ -97,7 +122,16 @@ class ArticlesTableViewController: UITableViewController, NSFetchedResultsContro
         }
         return sections.count
     }
-
+    
+    override func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
+        guard let sections = fetchedResultsController.sections else {
+            fatalError("No sections in fetched results controller")
+        }
+        let sectionInfo = sections[section]
+        return sectionInfo.name
+    }
+    
+    
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         guard let sections = fetchedResultsController.sections else {
             fatalError("No sections in fetchedResultsController")
@@ -116,8 +150,15 @@ class ArticlesTableViewController: UITableViewController, NSFetchedResultsContro
     
     func configureCell(_ cell: UITableViewCell, indexPath: IndexPath) {
         let article = fetchedResultsController.object(at: indexPath)
+        
+        let formatter = DateFormatter()
+        formatter.dateStyle = .long
+        formatter.timeStyle = .short
+//        formatter.dateFormat = "dd-MMM-YYYY"
         cell.textLabel?.text = article.title
-        cell.detailTextLabel?.text = article.abstract
+        cell.detailTextLabel?.text = formatter.string(from: article.publishedDate as! Date)
+        
+        
     }
     
     func controllerWillChangeContent(_ controller: NSFetchedResultsController<NSFetchRequestResult>) {
@@ -158,4 +199,32 @@ class ArticlesTableViewController: UITableViewController, NSFetchedResultsContro
     func controllerDidChangeContent(_ controller: NSFetchedResultsController<NSFetchRequestResult>) {
         tableView.endUpdates()
     }
+    
+    
+    func searchBarSearchButtonClicked(_ searchBar: UISearchBar) {
+        if let searchWord = searchBar.text {
+            print(searchWord)
+            applySearch(searchWord: searchWord)
+        }
+    }
+    
+    func searchBarCancelButtonClicked(_ searchBar: UISearchBar) {
+        print("click!")
+        self.searchWord = nil
+        initializeFetchedResultsController()
+        tableView.reloadData()
+    }
+    
+    func applySearch(searchWord: String) {
+        self.searchWord = searchWord
+        
+        initializeFetchedResultsController()
+        tableView.reloadData()
+    }
+    
+    @IBAction func getDataTapped(_ sender: UIBarButtonItem) {
+        getData()
+    }
+    
+    
 }
